@@ -897,7 +897,11 @@
         return "O Firebase bloqueou esta operação pelas regras de segurança.";
 
       default:
-        return "Não foi possível concluir a operação. Tente novamente.";
+  console.error("ERRO FIREBASE COMPLETO:", erro);
+  return "Erro Firebase: " +
+    (erro && erro.code ? erro.code : "sem código") +
+    " | " +
+    (erro && erro.message ? erro.message : "sem detalhes");
     }
   }
 
