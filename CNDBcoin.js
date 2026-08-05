@@ -8,9 +8,7 @@
   "use strict";
 
   var FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgzfiC-7XbxfiN5H05w",
-    projectId: "arena-cndb",
-    authDomain: "arena-cndb.firebaseapp.com"
+    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
   };
 
   var firebaseReady = false;
