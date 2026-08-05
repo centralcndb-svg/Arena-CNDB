@@ -8,7 +8,14 @@
   "use strict";
 
   var FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
+  apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
+  authDomain: "arena-cndb.firebaseapp.com",
+  projectId: "arena-cndb",
+  storageBucket: "arena-cndb.firebasestorage.app",
+  messagingSenderId: "799022193573",
+  appId: "1:799022193573:web:65724effdb80f2d3afe64c",
+  measurementId: "G-NM9G4GSXBH"
+};
   };
 
   var firebaseReady = false;
