@@ -1,834 +1,944 @@
-/* ARENA CNDB - CNDBcoin v2.3
-   Cadastro + Login + Perfil + Carteira
-*/
+/* =========================================================
+   ARENA CNDB - CNDBcoin
+   Login + Cadastro + Perfil
+   ========================================================= */
 
 (function () {
   "use strict";
 
-  var CFG = {
-    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
-    projectId: "arena-cndb"
+  var FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgzfiC-7XbxfiN5H05w",
+    projectId: "arena-cndb",
+    authDomain: "arena-cndb.firebaseapp.com"
   };
 
-  var token = sessionStorage.getItem("cndb_coin_token") || "";
-  var currentUser = null;
+  var firebaseReady = false;
+  var auth = null;
+  var db = null;
 
-  try {
-    currentUser = JSON.parse(
-      sessionStorage.getItem("cndb_coin_user") || "null"
-    );
-  } catch (error) {
-    currentUser = null;
+  /* =========================================================
+     UTILIDADES
+     ========================================================= */
+
+  function carregarScript(src) {
+    return new Promise(function (resolve, reject) {
+      var existente = document.querySelector('script[src="' + src + '"]');
+
+      if (existente) {
+        resolve();
+        return;
+      }
+
+      var script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
   }
 
-  function byId(id) {
-    return document.getElementById(id);
+  function escaparHTML(texto) {
+    return String(texto || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  function createInterface() {
-    if (byId("cndbcoin-open")) {
-      return;
+  function limparInstagram(instagram) {
+    return String(instagram || "")
+      .trim()
+      .replace(/^@+/, "");
+  }
+
+  function mostrarMensagem(texto, tipo) {
+    var box = document.getElementById("cndbcoin-msg");
+
+    if (!box) return;
+
+    box.textContent = texto;
+    box.style.display = "block";
+
+    if (tipo === "erro") {
+      box.style.background = "#3a1118";
+      box.style.borderColor = "#ff365f";
+      box.style.color = "#ffd9e0";
+    } else {
+      box.style.background = "#102d1d";
+      box.style.borderColor = "#43d17a";
+      box.style.color = "#d7ffe5";
     }
-
-    var root = document.createElement("div");
-
-    root.innerHTML = `
-      <button id="cndbcoin-open" type="button">
-        🪙 CNDBcoin
-      </button>
-
-      <div id="cndbcoin-modal" style="display:none;">
-        <div class="cndbcoin-card">
-
-          <button id="cndbcoin-close" type="button">
-            ✕
-          </button>
-
-          <h2>🪙 Minha Conta</h2>
-
-          <div id="cndbcoin-login">
-
-            <input
-              id="cndbcoin-email"
-              type="email"
-              placeholder="E-mail"
-            />
-
-            <input
-              id="cndbcoin-password"
-              type="password"
-              placeholder="Senha"
-            />
-
-            <button
-              id="cndbcoin-login-button"
-              class="cndbcoin-primary"
-              type="button"
-            >
-              ENTRAR
-            </button>
-
-            <p class="cndbcoin-info">
-              Ainda não possui uma conta?
-            </p>
-
-            <button
-              id="cndbcoin-register-button"
-              class="cndbcoin-secondary"
-              type="button"
-            >
-              👤 CRIAR MINHA CONTA
-            </button>
-
-          </div>
-
-          <div
-            id="cndbcoin-register"
-            style="display:none;"
-          >
-
-            <h3>👤 Criar Conta Arena CNDB</h3>
-
-            <input
-              id="cndbcoin-name"
-              type="text"
-              placeholder="Nome / Apelido"
-            />
-
-            <input
-              id="cndbcoin-instagram"
-              type="text"
-              placeholder="@Instagram"
-            />
-
-            <input
-              id="cndbcoin-register-email"
-              type="email"
-              placeholder="E-mail"
-            />
-
-            <input
-              id="cndbcoin-register-password"
-              type="password"
-              placeholder="Senha"
-            />
-
-            <input
-              id="cndbcoin-register-password2"
-              type="password"
-              placeholder="Confirmar senha"
-            />
-
-            <button
-              id="cndbcoin-create-account"
-              class="cndbcoin-primary"
-              type="button"
-            >
-              CRIAR CONTA
-            </button>
-
-            <button
-              id="cndbcoin-back-login"
-              type="button"
-            >
-              ← VOLTAR
-            </button>
-
-          </div>
-
-          <div
-            id="cndbcoin-wallet"
-            style="display:none;"
-          >
-
-            <div class="cndbcoin-profile">
-
-              <div class="cndbcoin-avatar">
-                👤
-              </div>
-
-              <div>
-                <div id="cndbcoin-profile-name">
-                  Conta Arena CNDB
-                </div>
-
-                <div id="cndbcoin-profile-instagram">
-                </div>
-
-                <div id="cndbcoin-profile-email">
-                </div>
-              </div>
-
-            </div>
-
-            <div class="cndbcoin-wallet-box">
-
-              <span>MEU SALDO</span>
-
-              <div class="cndbcoin-number">
-                🪙
-                <strong id="cndbcoin-balance">
-                  0
-                </strong>
-              </div>
-
-              <b>CNDBcoins</b>
-
-            </div>
-
-            <button
-              id="cndbcoin-refresh"
-              class="cndbcoin-secondary"
-              type="button"
-            >
-              🔄 ATUALIZAR SALDO
-            </button>
-
-            <button
-              id="cndbcoin-logout"
-              type="button"
-            >
-              SAIR
-            </button>
-
-          </div>
-
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(root);
-
-    createStyles();
-    createEvents();
-    updateInterface();
   }
 
-  function createStyles() {
-    if (byId("cndbcoin-style")) {
-      return;
+  function limparMensagem() {
+    var box = document.getElementById("cndbcoin-msg");
+    if (box) {
+      box.textContent = "";
+      box.style.display = "none";
     }
+  }
+
+  /* =========================================================
+     FIREBASE
+     ========================================================= */
+
+  async function iniciarFirebase() {
+    if (firebaseReady) return true;
+
+    try {
+      if (!window.firebase) {
+        await carregarScript(
+          "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"
+        );
+      }
+
+      if (!firebase.auth) {
+        await carregarScript(
+          "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"
+        );
+      }
+
+      if (!firebase.firestore) {
+        await carregarScript(
+          "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"
+        );
+      }
+
+      if (!firebase.apps.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+
+      auth = firebase.auth();
+      db = firebase.firestore();
+
+      firebaseReady = true;
+
+      return true;
+    } catch (erro) {
+      console.error("CNDBcoin: erro ao iniciar Firebase:", erro);
+      return false;
+    }
+  }
+
+  /* =========================================================
+     CSS
+     ========================================================= */
+
+  function criarEstilo() {
+    if (document.getElementById("cndbcoin-style")) return;
 
     var style = document.createElement("style");
-
     style.id = "cndbcoin-style";
 
     style.textContent = `
       #cndbcoin-open {
         position: fixed;
-        right: 14px;
-        bottom: 72px;
-        z-index: 99990;
-        background: #ffffff;
-        color: #111111;
-        border: 2px solid #d8a51d;
-        border-radius: 30px;
-        padding: 13px 19px;
-        font-size: 16px;
-        font-weight: 900;
-        box-shadow: 0 6px 20px rgba(0,0,0,.4);
+        right: 22px;
+        bottom: 82px;
+        z-index: 9998;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 999px;
+        padding: 14px 20px;
+        background: #152334;
+        color: #f4f7fb;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(0,0,0,.35);
       }
 
-      #cndbcoin-modal {
+      #cndbcoin-open:hover {
+        transform: translateY(-1px);
+      }
+
+      #cndbcoin-overlay {
         position: fixed;
         inset: 0;
         z-index: 99999;
-        background: rgba(0,8,18,.94);
+        background: rgba(0,8,18,.86);
+        display: none;
+        align-items: center;
+        justify-content: center;
         padding: 18px;
         overflow-y: auto;
         box-sizing: border-box;
       }
 
-      .cndbcoin-card {
-        position: relative;
+      #cndbcoin-box {
         width: 100%;
-        max-width: 500px;
-        margin: 7vh auto;
+        max-width: 590px;
+        background: #0d1c2c;
+        border-radius: 24px;
+        padding: 34px;
         box-sizing: border-box;
-        padding: 25px;
-        border-radius: 22px;
-        background: #0c1a2a;
-        color: #ffffff;
-        border: 1px solid rgba(255,183,0,.25);
-        box-shadow: 0 15px 45px rgba(0,0,0,.45);
-      }
-
-      .cndbcoin-card h2 {
-        margin: 5px 55px 25px 0;
-        font-size: 29px;
-      }
-
-      .cndbcoin-card h3 {
-        color: #ffb800;
-        margin-top: 5px;
+        color: white;
+        box-shadow: 0 25px 80px rgba(0,0,0,.55);
+        position: relative;
+        font-family: Arial, sans-serif;
       }
 
       #cndbcoin-close {
         position: absolute;
-        right: 15px;
-        top: 15px;
-        width: 48px;
-        height: 48px;
-        border-radius: 8px;
-        font-size: 22px;
+        right: 28px;
+        top: 28px;
+        width: 62px;
+        height: 62px;
+        border: 1px solid #bbb;
+        background: #fff;
+        color: #111;
+        font-size: 34px;
+        cursor: pointer;
+        border-radius: 3px;
       }
 
-      .cndbcoin-card input {
+      #cndbcoin-title {
+        font-size: 38px;
+        font-weight: 900;
+        margin: 5px 85px 34px 0;
+        line-height: 1.1;
+      }
+
+      .cndbcoin-input {
         display: block;
         width: 100%;
         box-sizing: border-box;
-        margin: 11px 0;
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #68788b;
-        background: #ffffff;
-        color: #111111;
-        font-size: 16px;
+        padding: 19px 18px;
+        margin: 0 0 16px;
+        border: 1px solid #bbb;
+        border-radius: 3px;
+        background: #fff;
+        color: #111;
+        font-size: 20px;
+        outline: none;
       }
 
-      .cndbcoin-card button {
-        padding: 13px 17px;
-        margin: 8px 0;
-        border-radius: 8px;
-        font-size: 16px;
+      .cndbcoin-input:focus {
+        border-color: #ffb000;
+        box-shadow: 0 0 0 2px rgba(255,176,0,.18);
+      }
+
+      .cndbcoin-btn {
+        border: 0;
+        border-radius: 5px;
+        padding: 16px 22px;
+        font-size: 18px;
+        font-weight: 800;
         cursor: pointer;
       }
 
-      .cndbcoin-primary {
-        background: #ffb800;
-        color: #08111d;
-        border: none;
-        font-weight: 900;
+      .cndbcoin-btn-primary {
+        background: #ffb000;
+        color: #07111c;
       }
 
-      .cndbcoin-secondary {
-        background: #14283d;
-        color: #ffffff;
-        border: 1px solid #ffb800;
-        font-weight: 800;
+      .cndbcoin-btn-secondary {
+        background: #fff;
+        color: #111;
+        border: 1px solid #bbb;
       }
 
-      .cndbcoin-info {
-        color: #bec9d5;
+      .cndbcoin-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      #cndbcoin-msg {
+        display: none;
+        padding: 13px;
+        border: 1px solid;
+        border-radius: 7px;
+        margin: 0 0 17px;
+        line-height: 1.4;
+      }
+
+      .cndbcoin-link {
+        color: #ffb000;
+        cursor: pointer;
+        font-weight: bold;
+        text-decoration: underline;
+      }
+
+      .cndbcoin-small {
+        color: #b8c5d4;
         margin-top: 22px;
+        line-height: 1.5;
       }
 
       .cndbcoin-profile {
-        display: flex;
-        align-items: center;
-        gap: 14px;
         background: #13263a;
-        border-radius: 15px;
-        padding: 15px;
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 18px;
       }
 
-      .cndbcoin-avatar {
-        width: 58px;
-        height: 58px;
-        min-width: 58px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: #ffb800;
-        border-radius: 50%;
-        font-size: 28px;
-      }
-
-      #cndbcoin-profile-name {
-        font-size: 20px;
+      .cndbcoin-profile-name {
+        font-size: 25px;
         font-weight: 900;
-      }
-
-      #cndbcoin-profile-instagram {
-        color: #ffb800;
-        margin-top: 3px;
-      }
-
-      #cndbcoin-profile-email {
-        color: #aebbc9;
-        font-size: 13px;
-        margin-top: 3px;
-      }
-
-      .cndbcoin-wallet-box {
-        margin: 22px 0;
-        padding: 22px;
-        text-align: center;
-        background: #071421;
-        border-radius: 15px;
-      }
-
-      .cndbcoin-wallet-box span {
-        display: block;
-        color: #9eacbb;
-        font-size: 12px;
         margin-bottom: 7px;
       }
 
-      .cndbcoin-number {
-        font-size: 32px;
-        margin: 6px 0;
+      .cndbcoin-profile-line {
+        color: #cbd7e4;
+        margin-top: 7px;
+        word-break: break-word;
+      }
+
+      @media(max-width:600px) {
+        #cndbcoin-box {
+          padding: 28px 24px;
+        }
+
+        #cndbcoin-title {
+          font-size: 31px;
+        }
+
+        #cndbcoin-close {
+          width: 55px;
+          height: 55px;
+          right: 22px;
+          top: 22px;
+        }
+
+        .cndbcoin-input {
+          font-size: 18px;
+        }
       }
     `;
 
     document.head.appendChild(style);
   }
 
-  function createEvents() {
-    byId("cndbcoin-open").onclick = function () {
-      byId("cndbcoin-modal").style.display = "block";
-      updateInterface();
-    };
+  /* =========================================================
+     INTERFACE
+     ========================================================= */
 
-    byId("cndbcoin-close").onclick = function () {
-      byId("cndbcoin-modal").style.display = "none";
-    };
+  function criarInterface() {
+    if (!document.getElementById("cndbcoin-open")) {
+      var botao = document.createElement("button");
 
-    byId("cndbcoin-register-button").onclick = function () {
-      byId("cndbcoin-login").style.display = "none";
-      byId("cndbcoin-register").style.display = "block";
-      byId("cndbcoin-wallet").style.display = "none";
-    };
+      botao.id = "cndbcoin-open";
+      botao.type = "button";
+      botao.innerHTML = "🪙 CNDBcoin";
 
-    byId("cndbcoin-back-login").onclick = function () {
-      byId("cndbcoin-register").style.display = "none";
-      byId("cndbcoin-login").style.display = "block";
-    };
+      botao.addEventListener("click", abrirCNDBcoin);
 
-    byId("cndbcoin-login-button").onclick = login;
-    byId("cndbcoin-create-account").onclick = register;
-    byId("cndbcoin-refresh").onclick = loadBalance;
-    byId("cndbcoin-logout").onclick = logout;
+      document.body.appendChild(botao);
+    }
+
+    if (!document.getElementById("cndbcoin-overlay")) {
+      var overlay = document.createElement("div");
+
+      overlay.id = "cndbcoin-overlay";
+
+      overlay.innerHTML = `
+        <div id="cndbcoin-box">
+
+          <button id="cndbcoin-close" type="button">×</button>
+
+          <div id="cndbcoin-title">
+            🪙 Minha Conta
+          </div>
+
+          <div id="cndbcoin-msg"></div>
+
+          <div id="cndbcoin-content"></div>
+
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      document
+        .getElementById("cndbcoin-close")
+        .addEventListener("click", fecharCNDBcoin);
+
+      overlay.addEventListener("click", function (event) {
+        if (event.target === overlay) {
+          fecharCNDBcoin();
+        }
+      });
+    }
   }
 
-  async function register() {
-    var name = byId("cndbcoin-name").value.trim();
+  function abrirCNDBcoin() {
+    var overlay = document.getElementById("cndbcoin-overlay");
 
-    var instagram =
-      byId("cndbcoin-instagram").value.trim();
+    if (!overlay) return;
 
-    var email =
-      byId("cndbcoin-register-email")
-        .value
-        .trim()
-        .toLowerCase();
+    overlay.style.display = "flex";
 
-    var password =
-      byId("cndbcoin-register-password").value;
+    limparMensagem();
 
-    var password2 =
-      byId("cndbcoin-register-password2").value;
+    iniciarFirebase().then(function (ok) {
+      if (!ok) {
+        mostrarMensagem(
+          "Não foi possível conectar ao sistema da Arena CNDB.",
+          "erro"
+        );
+        return;
+      }
 
-    if (!name) {
-      alert("Informe seu nome ou apelido.");
+      verificarSessao();
+    });
+  }
+
+  function fecharCNDBcoin() {
+    var overlay = document.getElementById("cndbcoin-overlay");
+
+    if (overlay) {
+      overlay.style.display = "none";
+    }
+  }
+
+  /* =========================================================
+     LOGIN
+     ========================================================= */
+
+  function telaLogin() {
+    limparMensagem();
+
+    var content = document.getElementById("cndbcoin-content");
+
+    content.innerHTML = `
+      <input
+        id="cndb-login-email"
+        class="cndbcoin-input"
+        type="email"
+        placeholder="E-mail"
+        autocomplete="email"
+      />
+
+      <input
+        id="cndb-login-senha"
+        class="cndbcoin-input"
+        type="password"
+        placeholder="Senha"
+        autocomplete="current-password"
+      />
+
+      <div class="cndbcoin-actions">
+
+        <button
+          id="cndb-login-btn"
+          class="cndbcoin-btn cndbcoin-btn-primary"
+          type="button">
+          Entrar
+        </button>
+
+        <button
+          id="cndb-cadastro-btn"
+          class="cndbcoin-btn cndbcoin-btn-secondary"
+          type="button">
+          Criar minha conta
+        </button>
+
+      </div>
+
+      <div class="cndbcoin-small">
+        Ainda não participa da Arena?
+        <span id="cndb-cadastro-link" class="cndbcoin-link">
+          Cadastre-se
+        </span>
+      </div>
+    `;
+
+    document
+      .getElementById("cndb-login-btn")
+      .addEventListener("click", fazerLogin);
+
+    document
+      .getElementById("cndb-cadastro-btn")
+      .addEventListener("click", telaCadastro);
+
+    document
+      .getElementById("cndb-cadastro-link")
+      .addEventListener("click", telaCadastro);
+  }
+
+  async function fazerLogin() {
+    limparMensagem();
+
+    var email = document
+      .getElementById("cndb-login-email")
+      .value.trim();
+
+    var senha = document
+      .getElementById("cndb-login-senha")
+      .value;
+
+    if (!email || !senha) {
+      mostrarMensagem("Informe o e-mail e a senha.", "erro");
+      return;
+    }
+
+    var botao = document.getElementById("cndb-login-btn");
+
+    botao.disabled = true;
+    botao.textContent = "Entrando...";
+
+    try {
+      await auth.signInWithEmailAndPassword(email, senha);
+
+      mostrarMensagem("✅ Login realizado com sucesso!");
+
+      setTimeout(function () {
+        verificarSessao();
+      }, 500);
+
+    } catch (erro) {
+      console.error(erro);
+
+      mostrarMensagem(
+        traduzirErroFirebase(erro),
+        "erro"
+      );
+
+    } finally {
+      botao.disabled = false;
+      botao.textContent = "Entrar";
+    }
+  }
+
+  /* =========================================================
+     CADASTRO
+     ========================================================= */
+
+  function telaCadastro() {
+    limparMensagem();
+
+    var content = document.getElementById("cndbcoin-content");
+
+    content.innerHTML = `
+      <input
+        id="cndb-cadastro-nome"
+        class="cndbcoin-input"
+        type="text"
+        placeholder="Nome ou apelido"
+        maxlength="60"
+      />
+
+      <input
+        id="cndb-cadastro-instagram"
+        class="cndbcoin-input"
+        type="text"
+        placeholder="@Instagram"
+        maxlength="50"
+      />
+
+      <input
+        id="cndb-cadastro-email"
+        class="cndbcoin-input"
+        type="email"
+        placeholder="E-mail"
+        autocomplete="email"
+      />
+
+      <input
+        id="cndb-cadastro-senha"
+        class="cndbcoin-input"
+        type="password"
+        placeholder="Senha"
+        autocomplete="new-password"
+      />
+
+      <input
+        id="cndb-cadastro-confirmar"
+        class="cndbcoin-input"
+        type="password"
+        placeholder="Confirmar senha"
+        autocomplete="new-password"
+      />
+
+      <div class="cndbcoin-actions">
+
+        <button
+          id="cndb-criar-conta"
+          class="cndbcoin-btn cndbcoin-btn-primary"
+          type="button">
+          CRIAR CONTA
+        </button>
+
+        <button
+          id="cndb-voltar-login"
+          class="cndbcoin-btn cndbcoin-btn-secondary"
+          type="button">
+          Voltar
+        </button>
+
+      </div>
+
+      <div class="cndbcoin-small">
+        Sua conta será vinculada à Arena CNDB.
+      </div>
+    `;
+
+    document
+      .getElementById("cndb-criar-conta")
+      .addEventListener("click", criarConta);
+
+    document
+      .getElementById("cndb-voltar-login")
+      .addEventListener("click", telaLogin);
+  }
+
+  async function criarConta() {
+    limparMensagem();
+
+    var nome = document
+      .getElementById("cndb-cadastro-nome")
+      .value.trim();
+
+    var instagram = limparInstagram(
+      document.getElementById("cndb-cadastro-instagram").value
+    );
+
+    var email = document
+      .getElementById("cndb-cadastro-email")
+      .value.trim()
+      .toLowerCase();
+
+    var senha = document
+      .getElementById("cndb-cadastro-senha")
+      .value;
+
+    var confirmar = document
+      .getElementById("cndb-cadastro-confirmar")
+      .value;
+
+    if (!nome) {
+      mostrarMensagem("Informe seu nome ou apelido.", "erro");
       return;
     }
 
     if (!instagram) {
-      alert("Informe seu @Instagram.");
+      mostrarMensagem("Informe seu @Instagram.", "erro");
       return;
     }
 
     if (!email) {
-      alert("Informe seu e-mail.");
+      mostrarMensagem("Informe seu e-mail.", "erro");
       return;
     }
 
-    if (password.length < 6) {
-      alert("A senha precisa ter pelo menos 6 caracteres.");
+    if (senha.length < 6) {
+      mostrarMensagem(
+        "A senha precisa ter pelo menos 6 caracteres.",
+        "erro"
+      );
       return;
     }
 
-    if (password !== password2) {
-      alert("As senhas não são iguais.");
+    if (senha !== confirmar) {
+      mostrarMensagem("As duas senhas não são iguais.", "erro");
       return;
     }
 
-    if (instagram.charAt(0) !== "@") {
-      instagram = "@" + instagram;
-    }
+    var botao = document.getElementById("cndb-criar-conta");
+
+    botao.disabled = true;
+    botao.textContent = "CRIANDO...";
 
     try {
-      var response = await fetch(
-        "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" +
-          CFG.apiKey,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email: email,
-            password: password,
-            returnSecureToken: true
-          })
-        }
+
+      var credencial =
+        await auth.createUserWithEmailAndPassword(email, senha);
+
+      var usuario = credencial.user;
+
+      if (!usuario) {
+        throw new Error("Usuário não criado.");
+      }
+
+      await usuario.updateProfile({
+        displayName: nome
+      });
+
+      await db
+        .collection("users")
+        .doc(usuario.uid)
+        .set({
+          uid: usuario.uid,
+          name: nome,
+          displayName: nome,
+          instagram: instagram,
+          email: usuario.email,
+          photoURL: "",
+          accountType: "user",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+      mostrarMensagem(
+        "✅ Conta Arena CNDB criada com sucesso!"
       );
 
-      var data = await response.json();
+      setTimeout(function () {
+        telaPerfil(usuario);
+      }, 900);
 
-      if (!response.ok) {
-        throw new Error(
-          translateFirebaseError(
-            data.error && data.error.message
-          )
+    } catch (erro) {
+
+      console.error(
+        "CNDBcoin: erro no cadastro:",
+        erro
+      );
+
+      /*
+       Se o Authentication criou a conta mas o Firestore
+       recusou o documento, tentamos remover a conta recém-criada
+       para evitar cadastro incompleto.
+      */
+
+      if (
+        auth &&
+        auth.currentUser &&
+        erro &&
+        erro.code === "permission-denied"
+      ) {
+        try {
+          await auth.currentUser.delete();
+        } catch (e) {
+          console.warn(
+            "Não foi possível desfazer usuário incompleto:",
+            e
+          );
+        }
+      }
+
+      mostrarMensagem(
+        traduzirErroFirebase(erro),
+        "erro"
+      );
+
+    } finally {
+
+      botao.disabled = false;
+      botao.textContent = "CRIAR CONTA";
+
+    }
+  }
+
+  /* =========================================================
+     PERFIL
+     ========================================================= */
+
+  async function telaPerfil(usuario) {
+    limparMensagem();
+
+    var content = document.getElementById("cndbcoin-content");
+
+    content.innerHTML = `
+      <div class="cndbcoin-profile">
+
+        <div class="cndbcoin-profile-name">
+          ${escaparHTML(usuario.displayName || "Usuário CNDB")}
+        </div>
+
+        <div class="cndbcoin-profile-line">
+          Carregando perfil...
+        </div>
+
+      </div>
+
+      <div class="cndbcoin-actions">
+
+        <button
+          id="cndb-sair"
+          class="cndbcoin-btn cndbcoin-btn-secondary"
+          type="button">
+          Sair
+        </button>
+
+      </div>
+    `;
+
+    document
+      .getElementById("cndb-sair")
+      .addEventListener("click", sair);
+
+    try {
+
+      var doc = await db
+        .collection("users")
+        .doc(usuario.uid)
+        .get();
+
+      var dados = doc.exists ? doc.data() : {};
+
+      var nome =
+        dados.name ||
+        dados.displayName ||
+        usuario.displayName ||
+        "Usuário CNDB";
+
+      var instagram =
+        dados.instagram
+          ? "@" + dados.instagram
+          : "Instagram não informado";
+
+      var tipo =
+        dados.accountType === "admin"
+          ? "Administrador"
+          : dados.accountType === "coach"
+          ? "Técnico"
+          : "Usuário";
+
+      content.querySelector(".cndbcoin-profile").innerHTML = `
+        <div class="cndbcoin-profile-name">
+          👤 ${escaparHTML(nome)}
+        </div>
+
+        <div class="cndbcoin-profile-line">
+          ${escaparHTML(instagram)}
+        </div>
+
+        <div class="cndbcoin-profile-line">
+          ${escaparHTML(usuario.email || "")}
+        </div>
+
+        <div class="cndbcoin-profile-line">
+          Tipo de conta: <strong>${escaparHTML(tipo)}</strong>
+        </div>
+      `;
+
+    } catch (erro) {
+
+      console.error(
+        "CNDBcoin: erro ao carregar perfil:",
+        erro
+      );
+
+      mostrarMensagem(
+        "A conta está conectada, mas não foi possível carregar os dados do perfil.",
+        "erro"
+      );
+
+    }
+  }
+
+  /* =========================================================
+     SESSÃO
+     ========================================================= */
+
+  function verificarSessao() {
+    if (!auth) {
+      telaLogin();
+      return;
+    }
+
+    var usuario = auth.currentUser;
+
+    if (usuario) {
+      telaPerfil(usuario);
+    } else {
+      telaLogin();
+    }
+  }
+
+  async function sair() {
+    try {
+      await auth.signOut();
+
+      mostrarMensagem("Sessão encerrada.");
+
+      setTimeout(function () {
+        telaLogin();
+      }, 300);
+
+    } catch (erro) {
+
+      mostrarMensagem(
+        "Não foi possível sair da conta.",
+        "erro"
+      );
+
+    }
+  }
+
+  /* =========================================================
+     ERROS FIREBASE
+     ========================================================= */
+
+  function traduzirErroFirebase(erro) {
+    var codigo = erro && erro.code ? erro.code : "";
+
+    switch (codigo) {
+
+      case "auth/email-already-in-use":
+        return "Este e-mail já possui uma conta na Arena CNDB.";
+
+      case "auth/invalid-email":
+        return "O e-mail informado não é válido.";
+
+      case "auth/weak-password":
+        return "A senha é muito fraca. Use pelo menos 6 caracteres.";
+
+      case "auth/user-not-found":
+        return "Conta não encontrada.";
+
+      case "auth/wrong-password":
+        return "Senha incorreta.";
+
+      case "auth/invalid-login-credentials":
+      case "auth/invalid-credential":
+        return "E-mail ou senha incorretos.";
+
+      case "auth/too-many-requests":
+        return "Muitas tentativas. Aguarde um pouco e tente novamente.";
+
+      case "auth/network-request-failed":
+        return "Falha de conexão. Verifique sua internet.";
+
+      case "permission-denied":
+      case "firestore/permission-denied":
+        return "O Firebase bloqueou esta operação pelas regras de segurança.";
+
+      default:
+        return "Não foi possível concluir a operação. Tente novamente.";
+    }
+  }
+
+  /* =========================================================
+     INICIALIZAÇÃO
+     ========================================================= */
+
+  function iniciarCNDBcoin() {
+    criarEstilo();
+    criarInterface();
+
+    iniciarFirebase().then(function (ok) {
+
+      if (!ok) {
+        console.error(
+          "CNDBcoin: Firebase não pôde ser iniciado."
         );
-      }
-
-      token = data.idToken;
-
-      currentUser = {
-        uid: data.localId,
-        email: data.email,
-        name: name,
-        instagram: instagram
-      };
-
-      saveSession();
-
-      await saveProfile();
-
-      updateInterface();
-
-      alert("✅ Conta Arena CNDB criada com sucesso!");
-
-    } catch (error) {
-      alert(
-        "Cadastro Arena CNDB: " +
-        error.message
-      );
-    }
-  }
-
-  async function login() {
-    var email =
-      byId("cndbcoin-email")
-        .value
-        .trim()
-        .toLowerCase();
-
-    var password =
-      byId("cndbcoin-password").value;
-
-    if (!email || !password) {
-      alert("Informe o e-mail e a senha.");
-      return;
-    }
-
-    try {
-      var response = await fetch(
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" +
-          CFG.apiKey,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email: email,
-            password: password,
-            returnSecureToken: true
-          })
-        }
-      );
-
-      var data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          translateFirebaseError(
-            data.error && data.error.message
-          )
-        );
-      }
-
-      token = data.idToken;
-
-      currentUser = {
-        uid: data.localId,
-        email: data.email
-      };
-
-      await loadProfile();
-
-      saveSession();
-
-      updateInterface();
-
-      await loadBalance();
-
-    } catch (error) {
-      alert(
-        "Conta Arena CNDB: " +
-        error.message
-      );
-    }
-  }
-
-  async function saveProfile() {
-    if (!token || !currentUser) {
-      return;
-    }
-
-    var url =
-      "https://firestore.googleapis.com/v1/projects/" +
-      CFG.projectId +
-      "/databases/(default)/documents/users/" +
-      currentUser.uid;
-
-    var body = {
-      fields: {
-        uid: {
-          stringValue: currentUser.uid
-        },
-        name: {
-          stringValue: currentUser.name || ""
-        },
-        instagram: {
-          stringValue: currentUser.instagram || ""
-        },
-        email: {
-          stringValue: currentUser.email || ""
-        },
-        accountType: {
-          stringValue: "user"
-        },
-        createdAt: {
-          timestampValue: new Date().toISOString()
-        }
-      }
-    };
-
-    var response = await fetch(
-      url,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify(body)
-      }
-    );
-
-    var data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.error && data.error.message
-          ? data.error.message
-          : "Erro ao salvar o perfil."
-      );
-    }
-  }
-
-  async function loadProfile() {
-    if (!token || !currentUser) {
-      return;
-    }
-
-    try {
-      var response = await fetch(
-        "https://firestore.googleapis.com/v1/projects/" +
-          CFG.projectId +
-          "/databases/(default)/documents/users/" +
-          currentUser.uid,
-        {
-          headers: {
-            "Authorization": "Bearer " + token
-          }
-        }
-      );
-
-      if (!response.ok) {
         return;
       }
 
-      var data = await response.json();
+      auth.onAuthStateChanged(function () {
+        /*
+          Não abrimos a janela automaticamente.
+          Apenas mantemos o estado da autenticação atualizado.
+        */
+      });
 
-      var fields = data.fields || {};
-
-      if (
-        fields.name &&
-        fields.name.stringValue
-      ) {
-        currentUser.name =
-          fields.name.stringValue;
-      }
-
-      if (
-        fields.instagram &&
-        fields.instagram.stringValue
-      ) {
-        currentUser.instagram =
-          fields.instagram.stringValue;
-      }
-
-    } catch (error) {
-      console.log(
-        "Arena CNDB profile error:",
-        error
-      );
-    }
-  }
-
-  async function loadBalance() {
-    if (!token || !currentUser) {
-      return;
-    }
-
-    try {
-      var response = await fetch(
-        "https://firestore.googleapis.com/v1/projects/" +
-          CFG.projectId +
-          "/databases/(default)/documents/wallets/" +
-          currentUser.uid,
-        {
-          headers: {
-            "Authorization": "Bearer " + token
-          }
-        }
-      );
-
-      if (response.status === 404) {
-        byId("cndbcoin-balance").textContent = "0";
-        return;
-      }
-
-      var data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error && data.error.message
-            ? data.error.message
-            : "Erro ao carregar saldo."
-        );
-      }
-
-      var fields = data.fields || {};
-
-      var balance = 0;
-
-      if (fields.balance) {
-        balance =
-          fields.balance.integerValue ||
-          fields.balance.doubleValue ||
-          0;
-      }
-
-      byId("cndbcoin-balance").textContent =
-        Number(balance).toLocaleString("pt-BR");
-
-    } catch (error) {
-      alert(
-        "Carteira CNDBcoin: " +
-        error.message
-      );
-    }
-  }
-
-  function saveSession() {
-    sessionStorage.setItem(
-      "cndb_coin_token",
-      token
-    );
-
-    sessionStorage.setItem(
-      "cndb_coin_user",
-      JSON.stringify(currentUser)
-    );
-  }
-
-  function updateInterface() {
-    var logged =
-      Boolean(token && currentUser);
-
-    byId("cndbcoin-login").style.display =
-      logged ? "none" : "block";
-
-    byId("cndbcoin-register").style.display =
-      "none";
-
-    byId("cndbcoin-wallet").style.display =
-      logged ? "block" : "none";
-
-    if (logged) {
-      byId("cndbcoin-profile-name").textContent =
-        currentUser.name ||
-        "Conta Arena CNDB";
-
-      byId("cndbcoin-profile-instagram").textContent =
-        currentUser.instagram || "";
-
-      byId("cndbcoin-profile-email").textContent =
-        currentUser.email || "";
-
-      loadBalance();
-    }
-  }
-
-  function logout() {
-    token = "";
-    currentUser = null;
-
-    sessionStorage.removeItem(
-      "cndb_coin_token"
-    );
-
-    sessionStorage.removeItem(
-      "cndb_coin_user"
-    );
-
-    updateInterface();
-  }
-
-  function translateFirebaseError(message) {
-    if (!message) {
-      return "Ocorreu um erro.";
-    }
-
-    if (
-      message.indexOf("EMAIL_EXISTS") !== -1
-    ) {
-      return "Este e-mail já possui uma conta.";
-    }
-
-    if (
-      message.indexOf(
-        "INVALID_LOGIN_CREDENTIALS"
-      ) !== -1
-    ) {
-      return "E-mail ou senha incorretos.";
-    }
-
-    if (
-      message.indexOf("INVALID_PASSWORD") !== -1
-    ) {
-      return "E-mail ou senha incorretos.";
-    }
-
-    if (
-      message.indexOf("INVALID_EMAIL") !== -1
-    ) {
-      return "E-mail inválido.";
-    }
-
-    if (
-      message.indexOf("WEAK_PASSWORD") !== -1
-    ) {
-      return "A senha precisa ter pelo menos 6 caracteres.";
-    }
-
-    return message;
+    });
   }
 
   if (document.readyState === "loading") {
+
     document.addEventListener(
       "DOMContentLoaded",
-      createInterface
+      iniciarCNDBcoin
     );
+
   } else {
-    createInterface();
+
+    iniciarCNDBcoin();
+
   }
 
 })();
