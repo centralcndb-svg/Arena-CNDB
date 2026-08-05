@@ -7,15 +7,18 @@
 (function () {
   "use strict";
 
+  /* =========================================================
+     CONFIGURAÇÃO OFICIAL FIREBASE - ARENA CNDB
+     ========================================================= */
+
   var FIREBASE_CONFIG = {
-  apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
-  authDomain: "arena-cndb.firebaseapp.com",
-  projectId: "arena-cndb",
-  storageBucket: "arena-cndb.firebasestorage.app",
-  messagingSenderId: "799022193573",
-  appId: "1:799022193573:web:65724effdb80f2d3afe64c",
-  measurementId: "G-NM9G4GSXBH"
-};
+    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
+    authDomain: "arena-cndb.firebaseapp.com",
+    projectId: "arena-cndb",
+    storageBucket: "arena-cndb.firebasestorage.app",
+    messagingSenderId: "799022193573",
+    appId: "1:799022193573:web:65724effdb80f2d3afe64c",
+    measurementId: "G-NM9G4GSXBH"
   };
 
   var firebaseReady = false;
@@ -104,6 +107,7 @@
     }
 
     try {
+
       if (!window.firebase) {
         await carregarScript(
           "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"
@@ -158,6 +162,7 @@
      ========================================================= */
 
   function criarEstilo() {
+
     if (document.getElementById("cndbcoin-style")) {
       return;
     }
@@ -329,6 +334,7 @@
       }
 
       @media(max-width:600px) {
+
         #cndbcoin-box {
           padding: 28px 24px;
         }
@@ -806,18 +812,12 @@
     botao.disabled = true;
     botao.textContent = "CRIANDO...";
 
-    /*
-      Esta variável vai identificar exatamente
-      em qual etapa o Firebase falhou.
-    */
-
     var etapa = "INÍCIO";
 
     try {
 
       /* =============================================
-         ETAPA 1
-         FIREBASE AUTHENTICATION
+         ETAPA 1 - FIREBASE AUTHENTICATION
          ============================================= */
 
       etapa = "AUTHENTICATION";
@@ -842,7 +842,6 @@
         throw new Error(
           "Authentication não retornou o usuário."
         );
-
       }
 
       console.log(
@@ -851,8 +850,7 @@
       );
 
       /* =============================================
-         ETAPA 2
-         NOME DO USUÁRIO
+         ETAPA 2 - NOME DO USUÁRIO
          ============================================= */
 
       etapa = "UPDATE_PROFILE";
@@ -871,8 +869,7 @@
       );
 
       /* =============================================
-         ETAPA 3
-         FIRESTORE /users/{UID}
+         ETAPA 3 - FIRESTORE /users/{UID}
          ============================================= */
 
       etapa = "FIRESTORE_USERS";
@@ -906,7 +903,6 @@
               .firestore
               .FieldValue
               .serverTimestamp()
-
         });
 
       etapa = "CONCLUÍDO";
@@ -971,16 +967,6 @@
           ? erro.message
           : "sem detalhes";
 
-      /*
-        IMPORTANTE:
-        Agora não escondemos o erro real.
-
-        A própria tela vai mostrar:
-        - etapa
-        - código
-        - detalhe
-      */
-
       mostrarMensagem(
         "ERRO NA ETAPA: " +
         etapa +
@@ -997,7 +983,6 @@
 
       botao.textContent =
         "CRIAR CONTA";
-
     }
   }
 
@@ -1133,7 +1118,6 @@
         detalhe,
         "erro"
       );
-
     }
   }
 
@@ -1160,7 +1144,6 @@
     } else {
 
       telaLogin();
-
     }
   }
 
@@ -1192,7 +1175,6 @@
         "Não foi possível sair da conta.",
         "erro"
       );
-
     }
   }
 
@@ -1304,10 +1286,8 @@
                 ? "conectado"
                 : "desconectado"
             );
-
           }
         );
-
       }
     );
   }
@@ -1324,7 +1304,6 @@
   } else {
 
     iniciarCNDBcoin();
-
   }
 
 })();
