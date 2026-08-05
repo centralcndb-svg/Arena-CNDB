@@ -1,106 +1,127 @@
 (function () {
-  var CHAVE = "cndb_admin_edicoes_v2";
+  var tecnicoAtual = null;
+  var CHAVE = "cndb_tecnicos_individuais_v1";
 
-  function chave(el) {
-    if (!el) return "";
-    if (el.id) return "id:" + el.id;
-
-    var tela = el.closest ? el.closest(".app-screen") : null;
-    var base = tela && tela.id ? tela.id : "main";
-
-    var lista = Array.prototype.slice.call(
-      document.querySelectorAll(
-        "#" + base +
-        " h1,#" + base +
-        " h2,#" + base +
-        " h3,#" + base +
-        " h4,#" + base +
-        " h5,#" + base +
-        " p,#" + base +
-        " span:not(.cndb-stat-num),#" + base +
-        " .cndb-panel-title"
-      )
-    );
-
-    return base + ":" + el.tagName.toLowerCase() + ":" + lista.indexOf(el);
+  function slug(txt) {
+    return String(txt || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
-  function editaveis() {
-    return document.querySelectorAll(
-      ".cndb-main h1," +
-      ".cndb-main h2," +
-      ".cndb-main h3," +
-      ".cndb-main h4," +
-      ".cndb-main h5," +
-      ".cndb-main p," +
-      ".cndb-main span:not(.cndb-stat-num)," +
-      ".cndb-main .cndb-panel-title"
-    );
-  }
-
-  function salvar() {
-    var itens = {};
-
-    editaveis().forEach(function (el) {
-      var k = chave(el);
-      if (!k) return;
-
-      itens[k] = {
-        html: el.innerHTML,
-        link: el.getAttribute("data-cndb-link") || ""
-      };
-    });
-
-    localStorage.setItem(
-      CHAVE,
-      JSON.stringify({
-        versao: 2,
-        atualizadoEm: new Date().toISOString(),
-        itens: itens
-      })
-    );
-
-    return true;
-  }
-
-  function restaurar() {
+  function ler() {
     try {
-      var pacote = JSON.parse(localStorage.getItem(CHAVE) || "{}");
-      var itens = pacote.itens || {};
-
-      editaveis().forEach(function (el) {
-        var item = itens[chave(el)];
-        if (!item) return;
-
-        if (typeof item.html === "string") {
-          el.innerHTML = item.html;
-        }
-
-        if (item.link) {
-          el.setAttribute("data-cndb-link", item.link);
-          el.style.cursor = "pointer";
-        }
-      });
+      return JSON.parse(localStorage.getItem(CHAVE) || "{}");
     } catch (e) {
-      console.log("Arena CNDB: erro ao restaurar.", e);
+      return {};
     }
   }
 
-  window.cndbSalvarLinks = salvar;
+  function gravar(dados) {
+    localStorage.setItem(CHAVE, JSON.stringify(dados));
+  }
 
-  restaurar();
+  var abrirOriginal = window.abrirPerfilTecnico;
 
-  document.addEventListener("click", function (e) {
-    var botao = e.target.closest && e.target.closest("button");
-    if (!botao) return;
+  window.abrirPerfilTecnico = function (tec) {
+    tecnicoAtual = tec;
 
-    if (
-      botao.textContent.indexOf("Salvar") !== -1 ||
-      botao.textContent.indexOf("💾") !== -1
-    ) {
-      setTimeout(salvar, 100);
+    var id = "tecnico-" + slug(tec.insta || tec.nome);
+
+    var tela = document.getElementById("screen-tecnico-perfil");
+    if (tela) {
+      tela.setAttribute("data-tecnico-id", id);
+    }
+
+    if (abrirOriginal) {
+      abrirOriginal(tec);
+    }
+
+    restaurarTecnico();
+  };
+
+  function restaurarTecnico() {
+    if (!tecnicoAtual) return;
+
+    var id = "tecnico-" + slug(tecnicoAtual.insta || tecnicoAtual.nome);
+    var banco = ler();
+    var dados = banco[id];
+
+    var tela = document.getElementById("screen-tecnico-perfil");
+    if (!tela) return;
+
+    tela.querySelectorAll("[data-cndb-link]").forEach(function (el) {
+      el.removeAttribute("data-cndb-link");
+      el.style.removeProperty("cursor");
+    });
+
+    if (!dados || !dados.links) return;
+
+    Object.keys(dados.links).forEach(function (chave) {
+      var el = document.getElementById(chave);
+
+      if (el && dados.links[chave]) {
+        el.setAttribute("data-cndb-link", dados.links[chave]);
+        el.style.cursor = "pointer";
+      }
+    });
+  }
+
+  function salvarTecnico() {
+    if (!tecnicoAtual) return;
+
+    var id = "tecnico-" + slug(tecnicoAtual.insta || tecnicoAtual.nome);
+    var banco = ler();
+
+    if (!banco[id]) {
+      banco[id] = {
+        nome: tecnicoAtual.nome,
+        insta: tecnicoAtual.insta,
+        equipe: tecnicoAtual.equipe,
+        links: {}
+      };
+    }
+
+    var tela = document.getElementById("screen-tecnico-perfil");
+    if (!tela) return;
+
+    tela.querySelectorAll("[data-cndb-link]").forEach(function (el) {
+      if (!el.id) return;
+
+      banco[id].links[el.id] =
+        el.getAttribute("data-cndb-link") || "";
+    });
+
+    banco[id].atualizadoEm = new Date().toISOString();
+
+    gravar(banco);
+  }
+
+  var salvarOriginal = window.salvarEdicoesAdmin;
+
+  window.salvarEdicoesAdmin = function (mostrarMensagem) {
+    if (salvarOriginal) {
+      salvarOriginal(false);
+    }
+
+    salvarTecnico();
+
+    if (mostrarMensagem !== false) {
+      alert("✅ Alterações do técnico salvas.");
+    }
+  };
+
+  document.addEventListener("click", function (event) {
+    if (!document.body.classList.contains("admin-active")) return;
+
+    var perfil = event.target.closest("#screen-tecnico-perfil");
+
+    if (perfil) {
+      setTimeout(salvarTecnico, 200);
     }
   });
 
-  console.log("Arena CNDB: salvamento administrativo conectado.");
+  console.log("Arena CNDB: fichas individuais dos técnicos ativadas.");
 })();
