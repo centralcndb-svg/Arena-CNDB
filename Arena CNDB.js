@@ -1,9 +1,18 @@
 (function () {
-  var tecnicoAtual = null;
-  var CHAVE = "cndb_tecnicos_individuais_v1";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBAj0HK2Dq4lE5tHgZfiC-7XbxfiN5H05w",
+    authDomain: "arena-cndb.firebaseapp.com",
+    projectId: "arena-cndb",
+    storageBucket: "arena-cndb.firebasestorage.app",
+    messagingSenderId: "799022193573",
+    appId: "1:799022193573:web:65724effdb80f2d3afe64c"
+  };
 
-  function slug(txt) {
-    return String(txt || "")
+  let tecnicoAtual = null;
+  let db = null;
+
+  function slug(valor) {
+    return String(valor || "")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -11,117 +20,270 @@
       .replace(/^-|-$/g, "");
   }
 
-  function ler() {
-    try {
-      return JSON.parse(localStorage.getItem(CHAVE) || "{}");
-    } catch (e) {
-      return {};
-    }
+  function carregarScript(src) {
+    return new Promise((resolve, reject) => {
+      const existente = document.querySelector(
+        'script[src="' + src + '"]'
+      );
+
+      if (existente) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
   }
 
-  function gravar(dados) {
-    localStorage.setItem(CHAVE, JSON.stringify(dados));
+  async function iniciarFirebase() {
+    if (!window.firebase) {
+      await carregarScript(
+        "https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"
+      );
+
+      await carregarScript(
+        "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"
+      );
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    db = firebase.firestore();
+
+    console.log("Arena CNDB: Firestore conectado.");
   }
 
-  var abrirOriginal = window.abrirPerfilTecnico;
+  function idTecnico(tec) {
+    if (!tec) return null;
 
-  window.abrirPerfilTecnico = function (tec) {
-    tecnicoAtual = tec;
+    return "tecnico-" + slug(
+      tec.insta ||
+      tec.instagram ||
+      tec.arroba ||
+      tec.nome
+    );
+  }
 
-    var id = "tecnico-" + slug(tec.insta || tec.nome);
-
-    var tela = document.getElementById("screen-tecnico-perfil");
-    if (tela) {
-      tela.setAttribute("data-tecnico-id", id);
-    }
-
-    if (abrirOriginal) {
-      abrirOriginal(tec);
-    }
-
-    restaurarTecnico();
-  };
-
-  function restaurarTecnico() {
-    if (!tecnicoAtual) return;
-
-    var id = "tecnico-" + slug(tecnicoAtual.insta || tecnicoAtual.nome);
-    var banco = ler();
-    var dados = banco[id];
-
-    var tela = document.getElementById("screen-tecnico-perfil");
+  function limparLinksDaFicha() {
+    const tela = document.getElementById("screen-tecnico-perfil");
     if (!tela) return;
 
-    tela.querySelectorAll("[data-cndb-link]").forEach(function (el) {
+    tela.querySelectorAll("[data-cndb-link]").forEach(el => {
       el.removeAttribute("data-cndb-link");
       el.style.removeProperty("cursor");
     });
-
-    if (!dados || !dados.links) return;
-
-    Object.keys(dados.links).forEach(function (chave) {
-      var el = document.getElementById(chave);
-
-      if (el && dados.links[chave]) {
-        el.setAttribute("data-cndb-link", dados.links[chave]);
-        el.style.cursor = "pointer";
-      }
-    });
   }
 
-  function salvarTecnico() {
-    if (!tecnicoAtual) return;
+  async function carregarTecnico() {
+    if (!db || !tecnicoAtual) return;
 
-    var id = "tecnico-" + slug(tecnicoAtual.insta || tecnicoAtual.nome);
-    var banco = ler();
+    const id = idTecnico(tecnicoAtual);
+    if (!id) return;
 
-    if (!banco[id]) {
-      banco[id] = {
-        nome: tecnicoAtual.nome,
-        insta: tecnicoAtual.insta,
-        equipe: tecnicoAtual.equipe,
-        links: {}
-      };
+    limparLinksDaFicha();
+
+    try {
+      const doc = await db
+        .collection("tecnicos")
+        .doc(id)
+        .get();
+
+      if (!doc.exists) return;
+
+      const dados = doc.data() || {};
+      const links = dados.links || {};
+
+      Object.keys(links).forEach(campoId => {
+        const elemento = document.getElementById(campoId);
+
+        if (elemento && links[campoId]) {
+          elemento.setAttribute(
+            "data-cndb-link",
+            links[campoId]
+          );
+
+          elemento.style.cursor = "pointer";
+        }
+      });
+
+      console.log(
+        "Arena CNDB: técnico carregado:",
+        id
+      );
+
+    } catch (erro) {
+      console.error(
+        "Erro ao carregar técnico:",
+        erro
+      );
     }
-
-    var tela = document.getElementById("screen-tecnico-perfil");
-    if (!tela) return;
-
-    tela.querySelectorAll("[data-cndb-link]").forEach(function (el) {
-      if (!el.id) return;
-
-      banco[id].links[el.id] =
-        el.getAttribute("data-cndb-link") || "";
-    });
-
-    banco[id].atualizadoEm = new Date().toISOString();
-
-    gravar(banco);
   }
 
-  var salvarOriginal = window.salvarEdicoesAdmin;
-
-  window.salvarEdicoesAdmin = function (mostrarMensagem) {
-    if (salvarOriginal) {
-      salvarOriginal(false);
+  async function salvarTecnico() {
+    if (!db || !tecnicoAtual) {
+      alert("Abra primeiro a ficha de um técnico.");
+      return;
     }
 
-    salvarTecnico();
+    const id = idTecnico(tecnicoAtual);
 
-    if (mostrarMensagem !== false) {
-      alert("✅ Alterações do técnico salvas.");
+    const tela =
+      document.getElementById("screen-tecnico-perfil");
+
+    if (!id || !tela) return;
+
+    const links = {};
+
+    tela
+      .querySelectorAll("[data-cndb-link]")
+      .forEach(el => {
+
+        if (!el.id) {
+          el.id =
+            id +
+            "-campo-" +
+            Math.random()
+              .toString(36)
+              .slice(2, 8);
+        }
+
+        links[el.id] =
+          el.getAttribute("data-cndb-link") || "";
+      });
+
+    try {
+      await db
+        .collection("tecnicos")
+        .doc(id)
+        .set(
+          {
+            id: id,
+
+            nome:
+              tecnicoAtual.nome || "",
+
+            insta:
+              tecnicoAtual.insta ||
+              tecnicoAtual.instagram ||
+              tecnicoAtual.arroba ||
+              "",
+
+            equipe:
+              tecnicoAtual.equipe || "",
+
+            links: links,
+
+            atualizadoEm:
+              firebase.firestore
+                .FieldValue
+                .serverTimestamp()
+          },
+          { merge: true }
+        );
+
+      alert("✅ Técnico salvo online.");
+
+    } catch (erro) {
+      console.error(erro);
+
+      alert(
+        "Não foi possível salvar online: " +
+        erro.message
+      );
     }
-  };
+  }
 
-  document.addEventListener("click", function (event) {
-    if (!document.body.classList.contains("admin-active")) return;
+  function conectarPerfil() {
+    const original =
+      window.abrirPerfilTecnico;
 
-    var perfil = event.target.closest("#screen-tecnico-perfil");
-
-    if (perfil) {
-      setTimeout(salvarTecnico, 200);
+    if (typeof original !== "function") {
+      setTimeout(conectarPerfil, 500);
+      return;
     }
-  });
 
-  console.log("Arena CNDB: fichas individuais dos técnicos ativadas.");
+    if (original.__cndbOnline) return;
+
+    function novaFuncao(tec) {
+      tecnicoAtual = tec;
+
+      limparLinksDaFicha();
+
+      const resultado =
+        original.apply(this, arguments);
+
+      setTimeout(
+        carregarTecnico,
+        100
+      );
+
+      return resultado;
+    }
+
+    novaFuncao.__cndbOnline = true;
+
+    window.abrirPerfilTecnico =
+      novaFuncao;
+  }
+
+  function conectarSalvar() {
+    document.addEventListener(
+      "click",
+      function (evento) {
+
+        const botao =
+          evento.target.closest("button");
+
+        if (!botao) return;
+
+        const texto =
+          (botao.textContent || "")
+            .toLowerCase();
+
+        if (
+          texto.includes("salvar") ||
+          texto.includes("💾")
+        ) {
+          const tela =
+            document.getElementById(
+              "screen-tecnico-perfil"
+            );
+
+          if (
+            tela &&
+            tela.classList.contains("active")
+          ) {
+            setTimeout(
+              salvarTecnico,
+              150
+            );
+          }
+        }
+      },
+      true
+    );
+  }
+
+  iniciarFirebase()
+    .then(() => {
+      conectarPerfil();
+      conectarSalvar();
+
+      console.log(
+        "Arena CNDB: técnicos individuais online ativados."
+      );
+    })
+    .catch(erro => {
+      console.error(
+        "Arena CNDB: Firebase não iniciou.",
+        erro
+      );
+    });
+
 })();
