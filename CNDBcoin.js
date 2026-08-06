@@ -1,6 +1,6 @@
 /* =========================================================
    ARENA CNDB - CNDBcoin
-   Login + Cadastro + Perfil + Envio
+   Login + Cadastro + Perfil
    ========================================================= */
 
 (function () {
@@ -42,14 +42,16 @@
       var script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
-      script.onerror = reject;
+      script.onerror = function () {
+        reject(new Error("Não foi possível carregar: " + src));
+      };
 
       document.head.appendChild(script);
     });
   }
 
   function escaparHTML(texto) {
-    return String(texto === undefined || texto === null ? "" : texto)
+    return String(texto || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -102,6 +104,7 @@
     }
 
     try {
+
       if (!window.firebase) {
         await carregarScript(
           "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"
@@ -129,15 +132,16 @@
 
       firebaseReady = true;
 
-      console.log("CNDBcoin: Firebase iniciado.");
+      console.log("CNDBcoin: Firebase iniciado com sucesso.");
       console.log(
-        "CNDBcoin: projeto:",
+        "CNDBcoin: Projeto:",
         firebase.app().options.projectId
       );
 
       return true;
 
     } catch (erro) {
+
       console.error(
         "CNDBcoin: erro ao iniciar Firebase:",
         erro
@@ -152,6 +156,7 @@
      ========================================================= */
 
   function criarEstilo() {
+
     if (document.getElementById("cndbcoin-style")) {
       return;
     }
@@ -323,6 +328,7 @@
       }
 
       @media(max-width:600px) {
+
         #cndbcoin-box {
           padding: 28px 24px;
         }
@@ -352,7 +358,9 @@
      ========================================================= */
 
   function criarInterface() {
+
     if (!document.getElementById("cndbcoin-open")) {
+
       var botao = document.createElement("button");
 
       botao.id = "cndbcoin-open";
@@ -368,6 +376,7 @@
     }
 
     if (!document.getElementById("cndbcoin-overlay")) {
+
       var overlay = document.createElement("div");
 
       overlay.id = "cndbcoin-overlay";
@@ -404,17 +413,22 @@
       overlay.addEventListener(
         "click",
         function (event) {
+
           if (event.target === overlay) {
             fecharCNDBcoin();
           }
+
         }
       );
     }
   }
 
   function abrirCNDBcoin() {
+
     var overlay =
-      document.getElementById("cndbcoin-overlay");
+      document.getElementById(
+        "cndbcoin-overlay"
+      );
 
     if (!overlay) return;
 
@@ -424,7 +438,9 @@
 
     iniciarFirebase().then(
       function (ok) {
+
         if (!ok) {
+
           mostrarMensagem(
             "Não foi possível conectar ao sistema da Arena CNDB.",
             "erro"
@@ -439,8 +455,11 @@
   }
 
   function fecharCNDBcoin() {
+
     var overlay =
-      document.getElementById("cndbcoin-overlay");
+      document.getElementById(
+        "cndbcoin-overlay"
+      );
 
     if (overlay) {
       overlay.style.display = "none";
@@ -452,10 +471,13 @@
      ========================================================= */
 
   function telaLogin() {
+
     limparMensagem();
 
     var content =
-      document.getElementById("cndbcoin-content");
+      document.getElementById(
+        "cndbcoin-content"
+      );
 
     content.innerHTML = `
       <input
@@ -493,6 +515,7 @@
       </div>
 
       <div class="cndbcoin-small">
+
         Ainda não participa da Arena?
 
         <span
@@ -500,6 +523,7 @@
           class="cndbcoin-link">
           Cadastre-se
         </span>
+
       </div>
     `;
 
@@ -526,6 +550,7 @@
   }
 
   async function fazerLogin() {
+
     limparMensagem();
 
     var email =
@@ -541,6 +566,7 @@
         .value;
 
     if (!email || !senha) {
+
       mostrarMensagem(
         "Informe o e-mail e a senha.",
         "erro"
@@ -550,12 +576,15 @@
     }
 
     var botao =
-      document.getElementById("cndb-login-btn");
+      document.getElementById(
+        "cndb-login-btn"
+      );
 
     botao.disabled = true;
     botao.textContent = "Entrando...";
 
     try {
+
       await auth.signInWithEmailAndPassword(
         email,
         senha
@@ -573,6 +602,7 @@
       );
 
     } catch (erro) {
+
       console.error(
         "CNDBcoin: erro no login:",
         erro
@@ -584,6 +614,7 @@
       );
 
     } finally {
+
       botao.disabled = false;
       botao.textContent = "Entrar";
     }
@@ -594,10 +625,13 @@
      ========================================================= */
 
   function telaCadastro() {
+
     limparMensagem();
 
     var content =
-      document.getElementById("cndbcoin-content");
+      document.getElementById(
+        "cndbcoin-content"
+      );
 
     content.innerHTML = `
       <input
@@ -653,13 +687,13 @@
           id="cndb-voltar-login"
           class="cndbcoin-btn cndbcoin-btn-secondary"
           type="button">
-          VOLTAR
+          Voltar
         </button>
 
       </div>
 
       <div class="cndbcoin-small">
-        Ao criar sua conta, seu perfil será registrado na Arena CNDB.
+        Sua conta será vinculada à Arena CNDB.
       </div>
     `;
 
@@ -679,6 +713,7 @@
   }
 
   async function criarConta() {
+
     limparMensagem();
 
     var nome =
@@ -692,7 +727,7 @@
         document
           .getElementById("cndb-cadastro-instagram")
           .value
-      ).toLowerCase();
+      );
 
     var email =
       document
@@ -712,464 +747,49 @@
         .value;
 
     if (!nome) {
+
       mostrarMensagem(
         "Informe seu nome ou apelido.",
         "erro"
       );
+
       return;
     }
 
     if (!instagram) {
+
       mostrarMensagem(
-        "Informe seu Instagram.",
+        "Informe seu @Instagram.",
         "erro"
       );
+
       return;
     }
 
     if (!email) {
+
       mostrarMensagem(
         "Informe seu e-mail.",
         "erro"
       );
+
       return;
     }
 
     if (senha.length < 6) {
+
       mostrarMensagem(
         "A senha precisa ter pelo menos 6 caracteres.",
         "erro"
       );
+
       return;
     }
 
     if (senha !== confirmar) {
-      mostrarMensagem(
-        "As senhas não são iguais.",
-        "erro"
-      );
-      return;
-    }
-
-    var botao =
-      document.getElementById("cndb-criar-conta");
-
-    botao.disabled = true;
-    botao.textContent = "CRIANDO...";
-
-    try {
-      var credencial =
-        await auth.createUserWithEmailAndPassword(
-          email,
-          senha
-        );
-
-      var usuario = credencial.user;
-
-      var perfil = {
-        uid: usuario.uid,
-        nome: nome,
-        instagram: instagram,
-        email: email,
-        saldo: 0,
-        criadoEm:
-          firebase.firestore.FieldValue.serverTimestamp(),
-        atualizadoEm:
-          firebase.firestore.FieldValue.serverTimestamp()
-      };
-
-      await db
-        .collection("usuarios")
-        .doc(usuario.uid)
-        .set(
-          perfil,
-          { merge: true }
-        );
-
-      try {
-        await usuario.updateProfile({
-          displayName: nome
-        });
-      } catch (erroPerfil) {
-        console.warn(
-          "CNDBcoin: não foi possível atualizar displayName:",
-          erroPerfil
-        );
-      }
 
       mostrarMensagem(
-        "✅ Conta criada com sucesso!"
-      );
-
-      setTimeout(
-        function () {
-          verificarSessao();
-        },
-        700
-      );
-
-    } catch (erro) {
-      console.error(
-        "CNDBcoin: erro ao criar conta:",
-        erro
-      );
-
-      mostrarMensagem(
-        traduzirErroFirebase(erro),
-        "erro"
-      );
-
-    } finally {
-      botao.disabled = false;
-      botao.textContent = "CRIAR CONTA";
-    }
-  }
-
-  /* =========================================================
-     SESSÃO E PERFIL
-     ========================================================= */
-
-  async function verificarSessao() {
-    if (!auth) {
-      telaLogin();
-      return;
-    }
-
-    var usuario = auth.currentUser;
-
-    if (!usuario) {
-      telaLogin();
-      return;
-    }
-
-    await mostrarPerfil(usuario);
-  }
-
-  async function mostrarPerfil(usuario) {
-    limparMensagem();
-
-    var content =
-      document.getElementById("cndbcoin-content");
-
-    content.innerHTML = `
-      <div class="cndbcoin-profile">
-        <div class="cndbcoin-profile-name">
-          Carregando perfil...
-        </div>
-      </div>
-    `;
-
-    try {
-      var documento =
-        await db
-          .collection("usuarios")
-          .doc(usuario.uid)
-          .get();
-
-      var dados =
-        documento.exists
-          ? documento.data()
-          : {};
-
-      var nome =
-        dados.nome ||
-        usuario.displayName ||
-        "Participante CNDB";
-
-      var instagram =
-        dados.instagram || "";
-
-      var email =
-        dados.email ||
-        usuario.email ||
-        "";
-
-      var saldo =
-        typeof dados.saldo === "number"
-          ? dados.saldo
-          : 0;
-
-      var instagramHTML = instagram
-        ? "@" + escaparHTML(instagram)
-        : "Não informado";
-
-      content.innerHTML = `
-        <div class="cndbcoin-profile">
-
-          <div class="cndbcoin-profile-name">
-            👤 ${escaparHTML(nome)}
-          </div>
-
-          <div class="cndbcoin-profile-line">
-            📧 ${escaparHTML(email)}
-          </div>
-
-          <div class="cndbcoin-profile-line">
-            📱 ${instagramHTML}
-          </div>
-
-          <div
-            class="cndbcoin-profile-line"
-            style="
-              margin-top:18px;
-              font-size:22px;
-              font-weight:900;
-              color:#ffb000;
-            ">
-            🪙 ${escaparHTML(saldo)} CNDBcoin
-          </div>
-
-        </div>
-
-        <div class="cndbcoin-actions">
-
-          <button
-            id="cndb-enviar-coin"
-            class="cndbcoin-btn cndbcoin-btn-primary"
-            type="button">
-            🪙 ENVIAR CNDBcoin
-          </button>
-
-          <button
-            id="cndb-atualizar-perfil"
-            class="cndbcoin-btn cndbcoin-btn-secondary"
-            type="button">
-            ATUALIZAR
-          </button>
-
-          <button
-            id="cndb-sair-conta"
-            class="cndbcoin-btn cndbcoin-btn-secondary"
-            type="button">
-            SAIR
-          </button>
-
-        </div>
-      `;
-
-      document
-        .getElementById("cndb-enviar-coin")
-        .addEventListener(
-          "click",
-          function () {
-            telaEnviarCNDBcoin(
-              usuario,
-              saldo
-            );
-          }
-        );
-
-      document
-        .getElementById("cndb-atualizar-perfil")
-        .addEventListener(
-          "click",
-          function () {
-            mostrarPerfil(usuario);
-          }
-        );
-
-      document
-        .getElementById("cndb-sair-conta")
-        .addEventListener(
-          "click",
-          sairConta
-        );
-
-    } catch (erro) {
-      console.error(
-        "CNDBcoin: erro ao carregar perfil:",
-        erro
-      );
-
-      content.innerHTML = `
-        <div class="cndbcoin-profile">
-
-          <div class="cndbcoin-profile-name">
-            👤 ${escaparHTML(
-              usuario.displayName ||
-              "Participante CNDB"
-            )}
-          </div>
-
-          <div class="cndbcoin-profile-line">
-            📧 ${escaparHTML(
-              usuario.email || ""
-            )}
-          </div>
-
-        </div>
-
-        <div class="cndbcoin-actions">
-
-          <button
-            id="cndb-sair-conta"
-            class="cndbcoin-btn cndbcoin-btn-secondary"
-            type="button">
-            SAIR
-          </button>
-
-        </div>
-      `;
-
-      document
-        .getElementById("cndb-sair-conta")
-        .addEventListener(
-          "click",
-          sairConta
-        );
-
-      mostrarMensagem(
-        "A conta está conectada, mas não foi possível carregar os dados do perfil.",
-        "erro"
-      );
-    }
-  }
-
-  /* =========================================================
-     ENVIAR CNDBcoin
-     ========================================================= */
-
-  function telaEnviarCNDBcoin(
-    usuario,
-    saldoAtual
-  ) {
-    limparMensagem();
-
-    var content =
-      document.getElementById("cndbcoin-content");
-
-    content.innerHTML = `
-      <div class="cndbcoin-profile">
-
-        <div class="cndbcoin-profile-name">
-          🪙 Enviar CNDBcoin
-        </div>
-
-        <div class="cndbcoin-profile-line">
-          Seu saldo disponível:
-        </div>
-
-        <div
-          class="cndbcoin-profile-line"
-          style="
-            font-size:26px;
-            font-weight:900;
-            color:#ffb000;
-            margin-top:10px;
-          ">
-          🪙 ${escaparHTML(saldoAtual)} CNDBcoin
-        </div>
-
-      </div>
-
-      <input
-        id="cndb-envio-instagram"
-        class="cndbcoin-input"
-        type="text"
-        placeholder="@Instagram do destinatário"
-        maxlength="50"
-        autocomplete="off"
-      />
-
-      <input
-        id="cndb-envio-quantidade"
-        class="cndbcoin-input"
-        type="number"
-        placeholder="Quantidade de CNDBcoin"
-        min="1"
-        step="1"
-        inputmode="numeric"
-      />
-
-      <div class="cndbcoin-actions">
-
-        <button
-          id="cndb-buscar-destinatario"
-          class="cndbcoin-btn cndbcoin-btn-primary"
-          type="button">
-          CONTINUAR
-        </button>
-
-        <button
-          id="cndb-cancelar-envio"
-          class="cndbcoin-btn cndbcoin-btn-secondary"
-          type="button">
-          VOLTAR
-        </button>
-
-      </div>
-
-      <div class="cndbcoin-small">
-        Informe o @Instagram da pessoa que receberá os CNDBcoin.
-      </div>
-    `;
-
-    document
-      .getElementById("cndb-buscar-destinatario")
-      .addEventListener(
-        "click",
-        function () {
-          prepararEnvioCNDBcoin(
-            usuario,
-            saldoAtual
-          );
-        }
-      );
-
-    document
-      .getElementById("cndb-cancelar-envio")
-      .addEventListener(
-        "click",
-        function () {
-          mostrarPerfil(usuario);
-        }
-      );
-  }
-
-  async function prepararEnvioCNDBcoin(
-    usuario,
-    saldoAtual
-  ) {
-    limparMensagem();
-
-    var instagram =
-      limparInstagram(
-        document
-          .getElementById("cndb-envio-instagram")
-          .value
-      ).toLowerCase();
-
-    var quantidade =
-      Number(
-        document
-          .getElementById("cndb-envio-quantidade")
-          .value
-      );
-
-    if (!instagram) {
-      mostrarMensagem(
-        "Informe o @Instagram do destinatário.",
-        "erro"
-      );
-
-      return;
-    }
-
-    if (
-      !Number.isInteger(quantidade) ||
-      quantidade <= 0
-    ) {
-      mostrarMensagem(
-        "Informe uma quantidade válida de CNDBcoin.",
-        "erro"
-      );
-
-      return;
-    }
-
-    if (quantidade > saldoAtual) {
-      mostrarMensagem(
-        "Você não possui CNDBcoin suficiente para esse envio.",
+        "As duas senhas não são iguais.",
         "erro"
       );
 
@@ -1178,131 +798,134 @@
 
     var botao =
       document.getElementById(
-        "cndb-buscar-destinatario"
+        "cndb-criar-conta"
       );
 
     botao.disabled = true;
-    botao.textContent = "BUSCANDO...";
+    botao.textContent = "CRIANDO...";
 
     try {
-      var consulta =
-        await db
-          .collection("usuarios")
-          .where(
-            "instagram",
-            "==",
-            instagram
-          )
-          .limit(1)
-          .get();
 
-      if (consulta.empty) {
-        mostrarMensagem(
-          "Não encontramos uma conta com @" +
-          instagram +
-          ".",
-          "erro"
+      var credencial =
+        await auth
+          .createUserWithEmailAndPassword(
+            email,
+            senha
+          );
+
+      var usuario = credencial.user;
+
+      if (!usuario) {
+        throw new Error(
+          "Authentication não retornou o usuário."
         );
-
-        return;
       }
 
-      var documento =
-        consulta.docs[0];
+      await usuario.updateProfile({
+        displayName: nome
+      });
 
-      if (documento.id === usuario.uid) {
-        mostrarMensagem(
-          "Você não pode enviar CNDBcoin para sua própria conta.",
-          "erro"
-        );
+      await db
+        .collection("users")
+        .doc(usuario.uid)
+        .set({
 
-        return;
-      }
+          uid: usuario.uid,
 
-      var destinatario =
-        documento.data();
+          name: nome,
 
-      confirmarEnvioCNDBcoin(
-        usuario,
-        saldoAtual,
-        documento.id,
-        destinatario,
-        quantidade
+          displayName: nome,
+
+          instagram: instagram,
+
+          email: usuario.email,
+
+          photoURL: "",
+
+          accountType: "user",
+
+          createdAt:
+            firebase
+              .firestore
+              .FieldValue
+              .serverTimestamp()
+        });
+
+      mostrarMensagem(
+        "✅ Conta Arena CNDB criada com sucesso!"
+      );
+
+      setTimeout(
+        function () {
+          telaPerfil(usuario);
+        },
+        900
       );
 
     } catch (erro) {
+
       console.error(
-        "CNDBcoin: erro ao localizar destinatário:",
+        "CNDBcoin: erro no cadastro:",
         erro
       );
 
+      if (
+        auth &&
+        auth.currentUser &&
+        erro &&
+        (
+          erro.code === "permission-denied" ||
+          erro.code === "firestore/permission-denied"
+        )
+      ) {
+
+        try {
+          await auth.currentUser.delete();
+        } catch (e) {
+          console.warn(
+            "Não foi possível desfazer usuário incompleto:",
+            e
+          );
+        }
+      }
+
       mostrarMensagem(
-        "Não foi possível localizar o destinatário.",
+        traduzirErroFirebase(erro),
         "erro"
       );
 
     } finally {
+
       botao.disabled = false;
-      botao.textContent = "CONTINUAR";
+      botao.textContent = "CRIAR CONTA";
     }
   }
 
-  function confirmarEnvioCNDBcoin(
-    usuario,
-    saldoAtual,
-    destinatarioUid,
-    destinatario,
-    quantidade
-  ) {
+  /* =========================================================
+     PERFIL
+     ========================================================= */
+
+  async function telaPerfil(usuario) {
+
     limparMensagem();
 
     var content =
-      document.getElementById("cndbcoin-content");
-
-    var nome =
-      destinatario.nome ||
-      "Participante CNDB";
-
-    var instagram =
-      destinatario.instagram ||
-      "";
+      document.getElementById(
+        "cndbcoin-content"
+      );
 
     content.innerHTML = `
       <div class="cndbcoin-profile">
 
         <div class="cndbcoin-profile-name">
-          Confirmar envio
+          ${escaparHTML(
+            usuario.displayName ||
+            "Usuário CNDB"
+          )}
         </div>
 
         <div class="cndbcoin-profile-line">
-          Você vai enviar:
-        </div>
-
-        <div
-          style="
-            font-size:30px;
-            font-weight:900;
-            color:#ffb000;
-            margin:16px 0;
-          ">
-          🪙 ${escaparHTML(quantidade)} CNDBcoin
-        </div>
-
-        <div class="cndbcoin-profile-line">
-          Para:
-        </div>
-
-        <div
-          style="
-            font-size:22px;
-            font-weight:900;
-            margin-top:8px;
-          ">
-          👤 ${escaparHTML(nome)}
-        </div>
-
-        <div class="cndbcoin-profile-line">
-          📱 @${escaparHTML(instagram)}
+          Carregando perfil...
         </div>
 
       </div>
@@ -1310,193 +933,46 @@
       <div class="cndbcoin-actions">
 
         <button
-          id="cndb-confirmar-transferencia"
-          class="cndbcoin-btn cndbcoin-btn-primary"
-          type="button">
-          CONFIRMAR ENVIO
-        </button>
-
-        <button
-          id="cndb-cancelar-transferencia"
+          id="cndb-sair"
           class="cndbcoin-btn cndbcoin-btn-secondary"
           type="button">
-          CANCELAR
+          Sair
         </button>
 
       </div>
     `;
 
     document
-      .getElementById(
-        "cndb-confirmar-transferencia"
-      )
+      .getElementById("cndb-sair")
       .addEventListener(
         "click",
-        function () {
-          mostrarMensagem(
-            "✅ Destinatário confirmado. A transferência segura ainda não está ativada."
-          );
-        }
+        sair
       );
-
-    document
-      .getElementById(
-        "cndb-cancelar-transferencia"
-      )
-      .addEventListener(
-        "click",
-        function () {
-          telaEnviarCNDBcoin(
-            usuario,
-            saldoAtual
-          );
-        }
-      );
-  }
-
-  /* =========================================================
-     SAIR
-     ========================================================= */
-
-  async function sairConta() {
-    limparMensagem();
 
     try {
-      await auth.signOut();
 
-      mostrarMensagem(
-        "✅ Você saiu da sua conta."
-      );
+      var doc =
+        await db
+          .collection("users")
+          .doc(usuario.uid)
+          .get();
 
-      setTimeout(
-        function () {
-          telaLogin();
-        },
-        400
-      );
+      var dados =
+        doc.exists
+          ? doc.data()
+          : {};
 
-    } catch (erro) {
-      console.error(
-        "CNDBcoin: erro ao sair:",
-        erro
-      );
+      var nome =
+        dados.name ||
+        dados.displayName ||
+        usuario.displayName ||
+        "Usuário CNDB";
 
-      mostrarMensagem(
-        traduzirErroFirebase(erro),
-        "erro"
-      );
-    }
-  }
+      var instagram =
+        dados.instagram
+          ? "@" + dados.instagram
+          : "Instagram não informado";
 
-  /* =========================================================
-     ERROS FIREBASE
-     ========================================================= */
-
-  function traduzirErroFirebase(erro) {
-    var codigo =
-      erro && erro.code
-        ? erro.code
-        : "";
-
-    switch (codigo) {
-
-      case "auth/email-already-in-use":
-        return "Este e-mail já possui uma conta na Arena CNDB.";
-
-      case "auth/invalid-email":
-        return "O endereço de e-mail informado é inválido.";
-
-      case "auth/weak-password":
-        return "A senha é muito fraca. Use pelo menos 6 caracteres.";
-
-      case "auth/user-not-found":
-        return "Conta não encontrada.";
-
-      case "auth/wrong-password":
-        return "Senha incorreta.";
-
-      case "auth/invalid-login-credentials":
-      case "auth/invalid-credential":
-        return "E-mail ou senha incorretos.";
-
-      case "auth/user-disabled":
-        return "Esta conta foi desativada.";
-
-      case "auth/too-many-requests":
-        return "Muitas tentativas. Aguarde um pouco e tente novamente.";
-
-      case "auth/network-request-failed":
-        return "Falha de conexão. Verifique sua internet.";
-
-      case "auth/operation-not-allowed":
-        return "O login por e-mail e senha ainda não está habilitado no Firebase.";
-
-      case "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
-        return "A chave API configurada no Firebase não foi aceita.";
-
-      default:
-        if (
-          erro &&
-          erro.message
-        ) {
-          return "Erro Firebase: " + erro.message;
-        }
-
-        return "Ocorreu um erro ao acessar sua conta.";
-    }
-  }
-
-  /* =========================================================
-     INICIALIZAÇÃO
-     ========================================================= */
-
-  function iniciarCNDBcoin() {
-    criarEstilo();
-    criarInterface();
-
-    iniciarFirebase()
-      .then(function (ok) {
-
-        if (!ok) {
-          console.warn(
-            "CNDBcoin: Firebase não pôde ser iniciado."
-          );
-          return;
-        }
-
-        auth.onAuthStateChanged(
-          function (usuario) {
-
-            var overlay =
-              document.getElementById(
-                "cndbcoin-overlay"
-              );
-
-            if (
-              !overlay ||
-              overlay.style.display !== "flex"
-            ) {
-              return;
-            }
-
-            if (usuario) {
-              mostrarPerfil(usuario);
-            } else {
-              telaLogin();
-            }
-          }
-        );
-      });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener(
-      "DOMContentLoaded",
-      iniciarCNDBcoin
-    );
-
-  } else {
-    iniciarCNDBcoin();
-  }
-
-})();
+      var tipo =
+        dados.accountType === "admin"
+          ?
